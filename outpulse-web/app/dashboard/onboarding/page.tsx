@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,25 @@ import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { useAction, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
 export default function OnboardingPage() {
+  const user = useQuery(api.users.currentUser);
+  const generateICPAction = useAction(api.icp.generateICP);
+  
   const [step, setStep] = useState(1);
   const [url, setUrl] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // Load existing key
+  useEffect(() => {
+    if (user?.openaiKey) {
+      setOpenaiKey(user.openaiKey);
+    }
+  }, [user]);
 
   // Mock Data State
   const [gaps, setGaps] = useState<any[]>([]);
@@ -38,10 +52,26 @@ export default function OnboardingPage() {
   };
 
   const handleGapsSubmit = async () => {
+    if (!openaiKey) {
+        alert("Please provide an OpenAI API key in Settings or enter it here if we had a field.");
+        // For onboarding, if no key, we might need a step to enter it.
+        // But for now, let's just attempt it if they have it.
+        setStep(1); 
+        return;
+    }
     setLoading(true);
-    // Simulate ICP Generation
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const result = await generateICPAction({ domain: url, openaiKey });
+      setIcp({
+        industry: result.targetIndustry.join(", "),
+        size: result.companySizeRange,
+        titles: result.jobTitles,
+        region: result.region.join(", ")
+      });
+      setStep(4);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate real ICP. Using fallback.");
       setIcp({
         industry: "B2B SaaS",
         size: "50-200 Employees",
@@ -49,7 +79,9 @@ export default function OnboardingPage() {
         region: "North America"
       });
       setStep(4);
-    }, 1500);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFinalApprove = () => {

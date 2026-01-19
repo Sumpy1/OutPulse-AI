@@ -7,6 +7,7 @@ export default defineSchema({
     email: v.string(),
     role: v.union(v.literal('admin'), v.literal('rep')),
     companyId: v.optional(v.id("companies")),
+    openaiKey: v.optional(v.string()),
   }).index("by_token", ["tokenIdentifier"]),
 
   companies: defineTable({
